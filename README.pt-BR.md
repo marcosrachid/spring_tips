@@ -1,19 +1,19 @@
-## Spring & Spring Boot – Concise Guide to Key Concepts
+## Spring & Spring Boot – Guia Resumido de Conceitos Importantes
 
-This repository gathers **notes and practical examples** about the main concepts of **Spring Framework** and **Spring Boot**: core modules, commonly used libraries, lifecycle, configuration, async execution, testing, and best practices.
+Este repositório reúne **anotações e exemplos práticos** sobre os principais conceitos do **Spring Framework** e do **Spring Boot**: módulos centrais, bibliotecas mais usadas, ciclo de vida, configuração, execução assíncrona, testes e boas práticas.
 
 ---
 
-## 1. Overview
+## 1. Visão Geral
 
-- **Spring Framework**: Java development platform focused on:
-  - **Inversion of Control (IoC)** and **Dependency Injection (DI)**
-  - **Aspect-Oriented Programming (AOP)**
-  - Abstractions for **data**, **transactions**, **messaging**, **security**, etc.
-- **Spring Boot**: a layer on top of Spring that:
-  - Simplifies application **bootstrap** (very little manual configuration)
-  - Uses **auto‑configuration** and **convention over configuration**
-  - Embeds a server (Tomcat/Jetty/Undertow) and packages everything into a **fat jar**
+- **Spring Framework**: plataforma de desenvolvimento Java focada em:
+  - **Inversão de Controle (IoC)** e **Injeção de Dependência (DI)**
+  - **Programação Orientada a Aspectos (AOP)**
+  - Abstrações para **dados**, **transações**, **mensageria**, **segurança**, etc.
+- **Spring Boot**: camada em cima do Spring que:
+  - Facilita o **bootstrap** de aplicações (pouca configuração manual)
+  - Usa **auto‑configuration** e **convention over configuration**
+  - Embute servidor (Tomcat/Jetty/Undertow) e empacota tudo em um **fat jar**
 
 ---
 
