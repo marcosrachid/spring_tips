@@ -154,18 +154,79 @@ This repository gathers **notes and practical examples** about the main concepts
 
 ---
 
-## 10. Ciclo de Vida da Aplicação / Beans
+## 10. Application / Bean Lifecycle (Step by Step)
 
-- Eventos de aplicação:
-  - `ApplicationStartedEvent`, `ApplicationReadyEvent`, `ContextRefreshedEvent`, etc.
-  - Listeners com `ApplicationListener` ou `@EventListener`.
-- Hooks de inicialização/finalização:
-  - Métodos `@PostConstruct` e `@PreDestroy`.
-  - Interfaces como `InitializingBean`, `DisposableBean`, `SmartLifecycle` (quando precisa de controle fino).
-- Ordem de inicialização:
-  - Determinada por dependências entre beans e, opcionalmente, `@DependsOn`.
-- Contextos web / Boot:
-  - Lifecycle do servidor embutido (Tomcat/Jetty/Netty) gerenciado pelo Spring Boot.
+From `main` until the application is ready to serve requests:
+
+- **1. `main` and `SpringApplication.run`**
+  - You call:
+    ```java
+    @SpringBootApplication
+    public class DemoApplication {
+        public static void main(String[] args) {
+            SpringApplication.run(DemoApplication.class, args);
+        }
+    }
+    ```
+  - `SpringApplication` analyzes the main class, determines the app type (servlet / reactive / non-web) and registers default `ApplicationListener`s.
+
+- **2. Environment preparation**
+  - Builds the `Environment`:
+    - Loads properties from command-line args, environment variables, `application.yml/properties`, external files, etc.
+  - Publishes early events such as:
+    - `ApplicationStartingEvent`
+    - `ApplicationEnvironmentPreparedEvent`
+  - Shows the banner if enabled.
+
+- **3. Creation of the `ApplicationContext`**
+  - Chooses context implementation:
+    - Servlet: `AnnotationConfigServletWebServerApplicationContext`
+    - Reactive: `AnnotationConfigReactiveWebServerApplicationContext`
+    - Non-web: `AnnotationConfigApplicationContext`
+  - Instantiates the context and wires:
+    - `Environment`
+    - `ApplicationListeners`
+    - `ResourceLoader`, etc.
+
+- **4. Registration of configuration classes and auto-configurations**
+  - Registers:
+    - Your main class (`@SpringBootApplication`) as `@Configuration`.
+    - Other configs found via **component scan**.
+  - Loads **auto-configurations**:
+    - Discovers `@AutoConfiguration` classes via `spring.factories` / `AutoConfiguration.imports`.
+    - Evaluates conditions (`@ConditionalOnClass`, `@ConditionalOnMissingBean`, `@ConditionalOnProperty`, etc.).
+    - Only registers auto-configurations whose conditions are satisfied.
+
+- **5. Context `refresh()` – core of the lifecycle**
+  - Prepares the `BeanFactory`:
+    - Registers default `BeanPostProcessor`s and `BeanFactoryPostProcessor`s.
+  - Invokes `BeanFactoryPostProcessor`s:
+    - E.g. configuration properties binding, customizations from Boot, etc.
+  - Registers custom `BeanPostProcessor`s (provided by you or by auto-config).
+  - Initializes message source (i18n) and application event multicaster.
+  - **Creates the embedded server** (for web apps):
+    - Creates a `ServletWebServerFactory` (Tomcat/Jetty/Undertow) and prepares the `WebServer`.
+  - **Instantiates singleton beans**:
+    - Calls constructors / dependency injection.
+    - Executes `@PostConstruct`, `InitializingBean.afterPropertiesSet`, custom `initMethod`.
+    - Applies `BeanPostProcessor` (`postProcessBeforeInitialization` / `postProcessAfterInitialization`).
+  - Publishes `ContextRefreshedEvent`.
+
+- **6. Embedded server “online” and startup events**
+  - Starts the embedded server and binds the listening port (typically 8080).
+  - Publishes:
+    - `ApplicationStartedEvent` (context refreshed, before runners).
+  - Executes:
+    - `ApplicationRunner` and `CommandLineRunner` beans (in order, if `@Order` is used).
+  - Publishes:
+    - `ApplicationReadyEvent` (context fully initialized, server running, runners executed).
+
+- **7. Steady state and shutdown**
+  - From this point:
+    - The app serves HTTP requests, processes messages, runs `@Scheduled` tasks, etc.
+  - On shutdown:
+    - Publishes `ContextClosedEvent`.
+    - Calls `@PreDestroy`, `DisposableBean.destroy`, `SmartLifecycle.stop`, etc.
 
 ---
 
