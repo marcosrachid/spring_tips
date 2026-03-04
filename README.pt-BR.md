@@ -1,5 +1,7 @@
 ## Spring & Spring Boot – Guia Resumido de Conceitos Importantes
 
+Versão em português · English version: see `README.md`.
+
 Este repositório reúne **anotações e exemplos práticos** sobre os principais conceitos do **Spring Framework** e do **Spring Boot**: módulos centrais, bibliotecas mais usadas, ciclo de vida, configuração, execução assíncrona, testes e boas práticas.
 
 ---
@@ -102,7 +104,7 @@ Este repositório reúne **anotações e exemplos práticos** sobre os principai
 
 ---
 
-## 7. Acesso a Dados (JPA, Transactions, etc.)
+## 7. Acesso a Dados (JPA, Transações, etc.)
 
 - **Spring Data JPA**:
   - Interfaces `Repository` / `CrudRepository` / `JpaRepository`.
@@ -154,18 +156,79 @@ Este repositório reúne **anotações e exemplos práticos** sobre os principai
 
 ---
 
-## 10. Ciclo de Vida da Aplicação / Beans
+## 10. Ciclo de Vida da Aplicação / Beans (Passo a Passo)
 
-- Eventos de aplicação:
-  - `ApplicationStartedEvent`, `ApplicationReadyEvent`, `ContextRefreshedEvent`, etc.
-  - Listeners com `ApplicationListener` ou `@EventListener`.
-- Hooks de inicialização/finalização:
-  - Métodos `@PostConstruct` e `@PreDestroy`.
-  - Interfaces como `InitializingBean`, `DisposableBean`, `SmartLifecycle` (quando precisa de controle fino).
-- Ordem de inicialização:
-  - Determinada por dependências entre beans e, opcionalmente, `@DependsOn`.
-- Contextos web / Boot:
-  - Lifecycle do servidor embutido (Tomcat/Jetty/Netty) gerenciado pelo Spring Boot.
+Do `main` até a aplicação estar pronta para receber requisições:
+
+- **1. `main` e `SpringApplication.run`**
+  - Você chama:
+    ```java
+    @SpringBootApplication
+    public class DemoApplication {
+        public static void main(String[] args) {
+            SpringApplication.run(DemoApplication.class, args);
+        }
+    }
+    ```
+  - O `SpringApplication` analisa a classe principal, descobre o tipo de aplicação (servlet / reativa / não-web) e registra `ApplicationListener`s padrão.
+
+- **2. Preparação do `Environment`**
+  - Constrói o `Environment`:
+    - Carrega propriedades de argumentos de linha de comando, variáveis de ambiente, `application.yml/properties`, arquivos externos, etc.
+  - Dispara eventos iniciais, como:
+    - `ApplicationStartingEvent`
+    - `ApplicationEnvironmentPreparedEvent`
+  - Exibe o banner, se habilitado.
+
+- **3. Criação do `ApplicationContext`**
+  - Escolhe a implementação de contexto:
+    - Servlet: `AnnotationConfigServletWebServerApplicationContext`
+    - Reativo: `AnnotationConfigReactiveWebServerApplicationContext`
+    - Não-web: `AnnotationConfigApplicationContext`
+  - Instancia o contexto e conecta:
+    - `Environment`
+    - `ApplicationListeners`
+    - `ResourceLoader`, etc.
+
+- **4. Registro de classes de configuração e auto‑configurações**
+  - Registra:
+    - Sua classe principal (`@SpringBootApplication`) como `@Configuration`.
+    - Outras configurações encontradas via **component scan**.
+  - Carrega as **auto‑configurations**:
+    - Descobre classes `@AutoConfiguration` via `spring.factories` / `AutoConfiguration.imports`.
+    - Avalia condições (`@ConditionalOnClass`, `@ConditionalOnMissingBean`, `@ConditionalOnProperty`, etc.).
+    - Só registra as auto‑configurations cujas condições forem satisfeitas.
+
+- **5. `refresh()` do contexto – coração do lifecycle**
+  - Prepara a `BeanFactory`:
+    - Registra `BeanPostProcessor`s e `BeanFactoryPostProcessor`s padrão.
+  - Invoca `BeanFactoryPostProcessor`s:
+    - Ex.: binding de propriedades de configuração, customizações do Boot, etc.
+  - Registra `BeanPostProcessor`s customizados (seus ou das auto‑configurações).
+  - Inicializa o message source (i18n) e o event multicaster.
+  - **Cria o servidor embutido** (para apps web):
+    - Cria um `ServletWebServerFactory` (Tomcat/Jetty/Undertow) e prepara o `WebServer`.
+  - **Instancia os beans singleton**:
+    - Chama construtores / faz injeção de dependências.
+    - Executa `@PostConstruct`, `InitializingBean.afterPropertiesSet`, `initMethod` customizado.
+    - Aplica `BeanPostProcessor` (`postProcessBeforeInitialization` / `postProcessAfterInitialization`).
+  - Publica o `ContextRefreshedEvent`.
+
+- **6. Servidor embutido “on‑line” e eventos de startup**
+  - Inicia o servidor embutido e abre a porta (tipicamente 8080).
+  - Publica:
+    - `ApplicationStartedEvent` (contexto refrescado, antes dos runners).
+  - Executa:
+    - Beans `ApplicationRunner` e `CommandLineRunner` (na ordem, se houver `@Order`).
+  - Publica:
+    - `ApplicationReadyEvent` (contexto totalmente inicializado, servidor rodando, runners executados).
+
+- **7. Estado estável e shutdown**
+  - A partir desse ponto:
+    - A app atende requisições HTTP, processa mensagens, executa tarefas `@Scheduled`, etc.
+  - No desligamento:
+    - Publica `ContextClosedEvent`.
+    - Chama `@PreDestroy`, `DisposableBean.destroy`, `SmartLifecycle.stop`, etc.
 
 ---
 
